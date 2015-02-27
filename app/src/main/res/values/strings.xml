@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">PlaygroundApplication</string>
+    <string name="title_section1">Section 1</string>
+    <string name="title_section2">Section 2</string>
+    <string name="title_section3">Section 3</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="action_settings">Settings</string>
+    <string name="title_show_list">Shows</string>
+    <string name="title_show_detail">Show Detail</string>
+    <string name="title_activity_installations">Installations</string>
+
+    <color name="black">#000000</color>
+    <color name="white">#FFFFFF</color>
+
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="title_activity_page_view_manager">PageViewManager</string>
+    <string name="title_activity_piece_information">PieceInformation</string>
+
+</resources>
