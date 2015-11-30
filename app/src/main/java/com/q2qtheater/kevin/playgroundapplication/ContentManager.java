@@ -1,28 +1,31 @@
 package com.q2qtheater.kevin.playgroundapplication;
 
+import com.q2qtheater.kevin.playgroundapplication.Fragments.Installation;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.BreakInformation;
+import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.Credit;
+import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.InstallationImage;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.InstallationInformation;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.ShowInformation;
+import com.q2qtheater.kevin.playgroundapplication.WebInterfaceManager;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.URL;
+
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.Scanner;
 import java.util.TimeZone;
 
 import android.content.Context;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
-import android.os.AsyncTask;
 import android.util.Log;
 
 import org.json.*;
@@ -35,78 +38,34 @@ import org.json.*;
  *
  */
 public class ContentManager {
-    private static final String jsonWebsite = "http://kevinmkarol.com/playgroundapp";
     private static Context applicationContext;
     private static PageViewManager currentActivity;
 
-    private static final String showStorage = "showInfo";
-    private static final String installationStorage = "installationInfo";
-    private static final String breakStorage = "breakInfo";
-    private static final String lastUpdateStorage = "lastUpdate";
+    //File accessors
+    private static final String version_fn = "installationImages";
+    private static final String festivalDates_fn = "festivalDates";
+    private static final String festivalStaff_fn = "festivalStaff";
+    private static final String specialThanks_fn = "specialThanks";
+    private static final String thursday_fn = "thursday";
+    private static final String friday_fn = "friday";
+    private static final String saturday_fn = "saturady";
+    private static final String installation_fn = "installationInfo";
+    private static final String installationImages_fn = "installationImages";
+    private static final String break_fn = "breakInfo";
+    private static final String lastUpdate_fn = "lastUpdate";
+    private static final String[] allFileNames = {version_fn, festivalDates_fn, festivalStaff_fn, specialThanks_fn
+                                                  , thursday_fn, friday_fn, saturday_fn, installation_fn, installationImages_fn
+                                                  , break_fn, lastUpdate_fn};
 
-
-    private static ArrayList<ShowInformation> thursdayShows = null;
-    private static ArrayList<ShowInformation> fridayShows = null;
-    private static ArrayList<ShowInformation> saturdayShows = null;
-
-    private static ArrayList<BreakInformation> breaks = null;
-    private static ArrayList<InstallationInformation> installations = null;
-
-    //Getter for Thursday Show List
-    public static ArrayList<ShowInformation> getThursdayShows(){
-        ArrayList<ShowInformation> shows;
-        if(thursdayShows != null){
-            shows = thursdayShows;
-        }else{
-            shows = new ArrayList<ShowInformation>();
-        }
-        return shows;
-    }
-
-    //Getter for Friday Show List
-    public static ArrayList<ShowInformation> getFridayShows(){
-        ArrayList<ShowInformation> shows;
-        if(fridayShows != null){
-            shows = fridayShows;
-        }else{
-            shows = new ArrayList<ShowInformation>();
-        }
-        return shows;
-    }
-
-    //Getter for Saturday Show List
-    public static ArrayList<ShowInformation> getSaturdayShows(){
-        ArrayList<ShowInformation> shows;
-        if(saturdayShows != null){
-            shows = saturdayShows;
-        }else{
-            shows = new ArrayList<ShowInformation>();
-        }
-        return shows;
-    }
-
-    //Getter for the Break List
-    public static ArrayList<BreakInformation> getBreakInformation(){
-        ArrayList<BreakInformation> breakList;
-        if(breaks != null){
-            breakList = breaks;
-        }else{
-            breakList = new ArrayList<BreakInformation>();
-        }
-        return breakList;
-    }
-
-    //Getter for the Installation List
-    public static ArrayList<InstallationInformation> getInstallations(){
-        ArrayList<InstallationInformation> install;
-        if(installations != null){
-            install = installations;
-        }else{
-            install = new ArrayList<InstallationInformation>();
-        }
-        return install;
-    }
-
+    //Array list caches
+    private static ArrayList<Credit> festivalStaff = new ArrayList<Credit>();
+    private static ArrayList<Credit> specialThanks = new ArrayList<Credit>();
+    private static ArrayList<ShowInformation> thursdayShowList = new ArrayList<ShowInformation>();
+    private static ArrayList<ShowInformation> fridayShowList = new ArrayList<ShowInformation>();
+    private static ArrayList<ShowInformation> saturdayShowList = new ArrayList<ShowInformation>();
+    private static ArrayList<InstallationInformation> installations = new ArrayList<InstallationInformation>();
+    private static ArrayList<InstallationImage> installationImages = new ArrayList<InstallationImage>();
+    private static ArrayList<BreakInformation> breaks = new ArrayList<BreakInformation>();
 
     /**
      * Called when the main view launches, this function checks the last time the content
@@ -120,13 +79,15 @@ public class ContentManager {
         applicationContext = appContext;
         currentActivity = activity;
 
-        File lastUpdateFile = new File(appContext.getFilesDir(), lastUpdateStorage);
+        File lastUpdateFile = new File(appContext.getFilesDir(), lastUpdate_fn);
         boolean successfulUpdate = true;
+        WebInterfaceManager webInterface = new WebInterfaceManager();
         try {
             if (!lastUpdateFile.exists()) {
                 //Files have not been created, create and get initial content
                 createAllFiles(appContext);
-                successfulUpdate = getContentFromWeb();
+
+                successfulUpdate = webInterface.getProgramInformation(appContext);
             } else {
                 //Conetent exists - check if it needs to be updated
                 //TODO: Not an object, use a scanner
@@ -135,20 +96,21 @@ public class ContentManager {
                 while(showScanner.hasNextLine()){
                     updateTimeSB.append(showScanner.nextLine());
                 }
-                int lastUpdated = Integer.parseInt(updateTimeSB.toString());
-
+                String lastUpdateString = updateTimeSB.toString();
+                int lastUpdatedDay = -1;
+                if(lastUpdateString != "") {
+                    lastUpdatedDay = Integer.parseInt(updateTimeSB.toString());
+                }
                 GregorianCalendar now = new GregorianCalendar(
                                             TimeZone.getTimeZone("GMT-5:00"));
 
                 //Check if content is from a different day
-                if(now.get(Calendar.DATE) != lastUpdated){
-                    getContentFromWeb();
-                }else{
-                    setContentFields();
+                if(now.get(Calendar.DATE) != lastUpdatedDay){
+                    webInterface.getProgramInformation(appContext);
                 }
             }
         }catch (IOException e){
-            e.printStackTrace();
+            Log.e("Playground App", "Initialize context error", e);
         }
 
         if(!successfulUpdate) {
@@ -162,41 +124,287 @@ public class ContentManager {
     /**
      * Retrieve the Show List for a given day
      *
-     * @param day integer representing which day of playground (0 indexed to thursday)
+     * @param informationType enum representing which piece of program information you'd like to recieve
      * @return an array list of all ShowInformation for that day
      */
-    public static ArrayList<ShowInformation> getShowList(int day){
-        ArrayList<ShowInformation> shows;
+    public static ArrayList getProgramInformation(InformationType informationType){
+        ArrayList information = null;
 
-        switch(day) {
-            case 0:
-                shows = thursdayShows;
+        switch(informationType) {
+            case FESTIVAL_STAFF:
+                if(festivalStaff == null || festivalStaff.size() == 0){
+                    festivalStaff = retrieveInformationFromFileSystem(festivalStaff_fn);
+                }
+                information = festivalStaff;
                 break;
-            case 1:
-                shows = fridayShows;
+            case SPECIAL_THANKS:
+                if(specialThanks == null || specialThanks.size() == 0){
+                    specialThanks = retrieveInformationFromFileSystem(specialThanks_fn);
+                }
+                information = specialThanks;
                 break;
-            case 2:
-                shows = saturdayShows;
+            case THURSDAY_SHOWS:
+                if(thursdayShowList == null || thursdayShowList.size() == 0){
+                    thursdayShowList = retrieveInformationFromFileSystem(thursday_fn);
+                }
+                information = thursdayShowList;
                 break;
-            default:
-                shows = null;
+            case FRIDAY_SHOWS:
+                if(fridayShowList == null || fridayShowList.size() == 0){
+                    fridayShowList = retrieveInformationFromFileSystem(friday_fn);
+                }
+                information = fridayShowList;
+                break;
+            case SATURDAY_SHOWS:
+                if(saturdayShowList == null || saturdayShowList.size() == 0){
+                    saturdayShowList = retrieveInformationFromFileSystem(saturday_fn);
+                }
+                information = saturdayShowList;
+                break;
+            case INSTALLATIONS:
+                if(installations == null || installations.size() == 0){
+                    installations = retrieveInformationFromFileSystem(installation_fn);
+                }
+                information = installations;
+                break;
+            case INSTALLATION_IMAGES:
+                if(installationImages == null || installationImages.size() == 0){
+                    installationImages = retrieveInformationFromFileSystem(installationImages_fn);
+                }
+                information = installationImages;
+                break;
+            case BREAKS:
+                if(breaks == null || breaks.size() == 0){
+                    breaks = retrieveInformationFromFileSystem(break_fn);
+                }
+                information = breaks;
                 break;
         }
 
-        return shows;
-    }
+        //protect null accessors in fragments
+        if(information == null){
+            information = new ArrayList();
+        }
 
-    public static ArrayList<InstallationInformation> getInstallationList(){
-        return installations;
+        return information;
     }
-
-    public static ArrayList<BreakInformation> getBreakList(){
-        return breaks;
-    }
-
     //endregion
 
-    //region manage interaction between web, file system, and object
+
+    //Parses the google sheets information into appropriate information storage arrays
+    //And writes each to the appropriate file
+    public static void parseGoogleSheetResponse(String result) {
+        float version;
+        ArrayList<GregorianCalendar>  festivalDates = new ArrayList<GregorianCalendar>();
+        String currentHeader = "";
+        ArrayList currentList = new ArrayList();
+        Scanner lineScanner = new Scanner(result);
+        lineScanner.useDelimiter("\r\n");
+        while (lineScanner.hasNext()) {
+            String currentLine = lineScanner.next();
+            Log.d("Line parsing", currentLine);
+            String[] allFields = currentLine.split(",");
+
+            ///////////
+            ///Distinguish between different headers
+            ///////////
+            if (allFields[0].equals("version")) {
+                version = Float.parseFloat(allFields[1]);
+                currentList.add(version);
+                continue;
+
+            } else if (allFields[0].equals("Festival Dates")) {
+                currentHeader = "Festival Dates";
+                writeProgramInformationToFile(version_fn, currentList);
+                currentList.clear();
+                continue;
+
+            } else if (allFields[0].equals("Installation Images")) {
+                currentHeader = "Installation Images";
+                writeProgramInformationToFile(festivalDates_fn, currentList);
+                festivalDates = new ArrayList<GregorianCalendar>(currentList);
+                currentList.clear();
+                continue;
+
+            } else if (allFields[0].equals("Festival Staff")) {
+                currentHeader = "Festival Staff";
+                writeProgramInformationToFile(installationImages_fn, currentList);
+                installationImages = new ArrayList<InstallationImage>(currentList);
+                currentList.clear();
+                continue;
+
+            } else if (allFields[0].equals("Special Thanks")) {
+                currentHeader = "Special Thanks";
+                writeProgramInformationToFile(festivalStaff_fn, currentList);
+                festivalStaff = new ArrayList<Credit>(currentList);
+                currentList.clear();
+                continue;
+
+            } else if (allFields[0].equals("Thursday")) {
+                currentHeader = "Thursday";
+                writeProgramInformationToFile(specialThanks_fn, currentList);
+                specialThanks = new ArrayList<Credit>(currentList);
+                currentList.clear();
+                continue;
+
+            } else if (allFields[0].equals("Friday")) {
+                currentHeader = "Thursday";
+                writeProgramInformationToFile(thursday_fn, currentList);
+                thursdayShowList = new ArrayList<ShowInformation>(currentList);
+                currentList.clear();
+                continue;
+
+            } else if (allFields[0].equals("Saturday")) {
+                currentHeader = "Saturday";
+                writeProgramInformationToFile(friday_fn, currentList);
+                fridayShowList = new ArrayList<ShowInformation>(currentList);
+                currentList.clear();
+                continue;
+
+            } else if (allFields[0].equals("Installations")) {
+                currentHeader = "Installations";
+                writeProgramInformationToFile(saturday_fn, currentList);
+                saturdayShowList = new ArrayList<ShowInformation>(currentList);
+                currentList.clear();
+                continue;
+
+            } else if (allFields[0].equals("Breaks")) {
+                currentHeader = "Breaks";
+                writeProgramInformationToFile(installation_fn, currentList);
+                installations = new ArrayList<InstallationInformation>(currentList);
+                currentList.clear();
+                continue;
+
+            } else if (allFields[0].equals("End")) {
+                writeProgramInformationToFile(break_fn, currentList);
+                breaks = new ArrayList<BreakInformation>(currentList);
+                currentList.clear();
+                break;
+            }
+
+            ///////////
+            ///Process each line based on current Header
+            ///////////
+            DateFormat df = new SimpleDateFormat("MM-dd-yyyy-HH-mm-ss");
+            if (currentHeader.equals("version")) {
+                continue;
+            } else if (currentHeader.equals("Festival Dates")) {
+                try {
+                    Date thursday = df.parse(allFields[1]);
+                    Date friday = df.parse(allFields[2]);
+                    Date saturday = df.parse(allFields[3]);
+                    currentList.add(thursday);
+                    currentList.add(friday);
+                    currentList.add(saturday);
+                }catch (java.text.ParseException e){
+                    Log.e("Playground App", "date parsing error from sheet", e);
+
+                }
+
+            } else if (currentHeader.equals("Installation Images")) {
+                InstallationImage imageInfo = new InstallationImage(allFields[1], allFields[2]);
+                currentList.add(imageInfo);
+            } else if (currentHeader.equals("Festival Staff")) {
+                Credit credit = new Credit(allFields[1], allFields[2]);
+                currentList.add(credit);
+            } else if (currentHeader.equals("Special Thanks")) {
+                Credit credit = new Credit(allFields[1]);
+                currentList.add(credit);
+            } else if (currentHeader.equals("Thursday")
+                       || currentHeader.equals("Friday")
+                       || currentHeader.equals("Saturday")) {
+
+                Date d = null;
+                try {
+                    d = df.parse(allFields[3]);
+                }catch (java.text.ParseException e){
+                    Log.e("Playground App", "date parsing error for show from sheet", e);
+                }
+
+                ShowInformation show = new ShowInformation(allFields[1], allFields[2], allFields[4],
+                                                           allFields[5], allFields[6], allFields[7], d);
+                currentList.add(show);
+
+            } else if (currentHeader.equals("Installations")) {
+                InstallationInformation show = new InstallationInformation(allFields[1], allFields[2], allFields[4],
+                        allFields[5], allFields[6], allFields[7]);
+                currentList.add(show);
+
+            } else if (currentHeader.equals("Breaks")) {
+                Date d = null;
+                try {
+                    d = df.parse(allFields[1]);
+                }catch (java.text.ParseException e){
+                    Log.e("Playground App", "break date parsing error", e);
+                }
+                BreakInformation breakInfo = new BreakInformation(d);
+            }
+        }
+    }
+
+
+    private static ArrayList retrieveInformationFromFileSystem(String fileName){
+        File readFile = new File(applicationContext.getFilesDir(), fileName);
+        FileInputStream fin = null;
+        ObjectInputStream ois = null;
+        ArrayList fileContents = null;
+        if(readFile.length() != 0) {
+            try {
+                fin = new FileInputStream(readFile);
+                ois = new ObjectInputStream(fin);
+                if (ois != null) {
+                    fileContents = (ArrayList) ois.readObject();
+                }
+            } catch (java.io.FileNotFoundException e) {
+                Log.e("Playground App", "retrieve information error", e);
+            } catch (java.io.IOException e) {
+                Log.e("Playground App", "retrieve information error", e);
+            } catch (java.lang.ClassNotFoundException e) {
+                Log.e("Playground App", "retrieve information error", e);
+            } finally {
+                try {
+                    if (ois != null) {
+                        ois.close();
+                    }
+                    if (fin != null) {
+                        fin.close();
+                    }
+                } catch (java.io.IOException e) {
+                    Log.e("Playground App", "retrieve information error", e);
+                }
+            }
+        }
+
+        return fileContents;
+    }
+
+    private static void writeProgramInformationToFile(String fileName, ArrayList information){
+        File writeFile = new File(applicationContext.getFilesDir(), fileName);
+        FileOutputStream fout = null;
+        ObjectOutputStream oos = null;
+        try {
+            fout = new FileOutputStream(writeFile);
+            oos = new ObjectOutputStream(fout);
+            oos.writeObject(information);
+
+        }catch(java.io.IOException e) {
+            Log.e("Playground App", "write information error", e);
+        }finally{
+            try {
+                if (oos != null) {
+                    oos.close();
+                }
+                if (fout != null) {
+                    fout.close();
+                }
+            }catch(java.io.IOException e){
+                Log.e("Playground App", "retrieve information error", e);
+            }
+        }
+    }
+
+
+    //region manage interaction with file system, and object
 
     /**
      * Create the files that will persistently store show information
@@ -205,360 +413,33 @@ public class ContentManager {
      * @param appContext the app context to allow writing to the file system
      */
     private static void createAllFiles(Context appContext){
-        File updatefile = new File(appContext.getFilesDir(), lastUpdateStorage);
-        File showfile = new File(appContext.getFilesDir(), showStorage);
-        File breakfile = new File(appContext.getFilesDir(), breakStorage);
-        File installationfile = new File(appContext.getFilesDir(), installationStorage);
+        File toCreate = null;
         FileWriter updateWriter;
-        try {
-            updatefile.createNewFile();
-            showfile.createNewFile();
-            breakfile.createNewFile();
-            installationfile.createNewFile();
+        for(String fileName : allFileNames){
+            toCreate = new File(appContext.getFilesDir(), fileName);
+            try{
+                toCreate.createNewFile();
+            }catch(java.io.IOException e){
+                Log.e("Playground App", "create all files error", e);
 
-            //Set the time to 1970 so that data will be fetched
-            int notADate = -1;
+            }
+        }
+
+        //Set the date in the lastUpdate file so that data will be fetched the
+        //first time the app is opened
+        File updatefile = new File(appContext.getFilesDir(), lastUpdate_fn);
+        //Set the time to 1970 so that data will be fetched
+        int notADate = -1;
+        try {
             updateWriter = new FileWriter(updatefile, false);
             updateWriter.write(Integer.toString(notADate));
-
-        }catch (IOException e){
-            e.printStackTrace();
+        }catch (java.io.IOException e){
+            Log.e("Playground App", "write initial date error", e);
         }
 
-    }
-
-    /**
-     * Retrieves JSON information from the playground website, and stores it in android file system
-     */
-    private static boolean getContentFromWeb(){
-        ConnectivityManager connMgr =
-                (ConnectivityManager) applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE);
-        NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
-        if(networkInfo == null || !networkInfo.isConnected()){
-            return false;
-        }
-        new FetchJSON().execute(jsonWebsite);
-
-        return true;
-    }
-
-    /**
-     * Sets the static content lists from file directory
-     */
-    private static void setContentFields(){
-        if(thursdayShows == null){
-            File showfile = new File(applicationContext.getFilesDir(), showStorage);
-            File breakfile = new File(applicationContext.getFilesDir(), breakStorage);
-            File installationfile = new File(applicationContext.getFilesDir(), installationStorage);
-            JSONObject allShows = null;
-            JSONArray allBreaks = null;
-            JSONArray allInstallations = null;
-
-            try {
-                StringBuilder showSB = new StringBuilder();
-                Scanner showScanner = new Scanner(showfile);
-                while(showScanner.hasNextLine()){
-                     showSB.append(showScanner.nextLine());
-                }
-                allShows = new JSONObject(showSB.toString());
-
-                StringBuilder breakSB = new StringBuilder();
-                Scanner breakScanner = new Scanner(breakfile);
-                while(breakScanner.hasNextLine()){
-                    breakSB.append(breakScanner.nextLine());
-                }
-                allBreaks = new JSONArray(breakSB.toString());
-
-
-                StringBuilder installSB = new StringBuilder();
-                Scanner installationScanner = new Scanner(installationfile);
-                while(installationScanner.hasNextLine()){
-                    installSB.append(installationScanner.nextLine());
-                }
-                allInstallations = new JSONArray(installSB.toString());
-
-                JSONArray thursday = allShows.getJSONArray("thursday");
-                JSONArray friday = allShows.getJSONArray("friday");
-                JSONArray saturday = allShows.getJSONArray("saturday");
-
-
-                //Construct objects from JSON and add to master lists
-                breaks = new ArrayList<BreakInformation>();
-                installations = new ArrayList<InstallationInformation>();
-                thursdayShows = new ArrayList<ShowInformation>();
-                fridayShows = new ArrayList<ShowInformation>();
-                saturdayShows = new ArrayList<ShowInformation>();
-
-                for(int i = 0; i < allBreaks.length(); i++){
-                    JSONObject current = allBreaks.getJSONObject(i);
-                    String displayTime = current.getString("time");
-                    int month = current.getInt("month");
-                    int day = current.getInt("day");
-                    int hour = current.getInt("hour");
-                    int minute = current.getInt("minute");
-                    BreakInformation currentBreak =
-                            new BreakInformation(displayTime, month, day, hour, minute);
-                    breaks.add(currentBreak);
-                }
-
-                for(int i = 0; i < allInstallations.length(); i++){
-                    JSONObject current = allInstallations.getJSONObject(i);
-                    String title = current.getString("title");
-                    String location = current.getString("location");
-                    String description = current.getString("description");
-                    String specialThanks = current.getString("specialThanks");
-                    String audiencWarning = current.getString("audienceWarning");
-                    String showCreator = current.getString("showCreator");
-                    String showParticipants = current.getString("showParticipants");
-
-                    InstallationInformation install =
-                            new InstallationInformation(title, location, description,
-                                    specialThanks, audiencWarning, showCreator, showParticipants);
-                    installations.add(install);
-                }
-
-                ////////
-                ///////
-                //Duplicate code for these 3 functions
-                ///////
-                //////
-                for(int i = 0; i < thursday.length(); i++){
-                    JSONObject current = thursday.getJSONObject(i);
-                    String title = current.getString("title");
-                    String time = current.getString("time");
-                    String location = current.getString("location");
-                    String locationAbbr = current.getString("locationAbbr");
-                    String description = current.getString("description");
-                    String specialThanks = current.getString("specialThanks");
-                    String audienceWarning = current.getString("audienceWarning");
-                    String showCreator = current.getString("showCreator");
-                    String showParticipants = current.getString("showParticipants");
-
-                    int month = current.getInt("month");
-                    int day = current.getInt("day");
-                    int hour = current.getInt("hour");
-                    int minutes = current.getInt("minutes");
-
-                    ShowInformation info = new ShowInformation(title, time, location, locationAbbr,
-                            description, specialThanks, audienceWarning, showCreator, showParticipants,
-                            month, day, hour, minutes);
-                    thursdayShows.add(info);
-
-
-                }
-
-                for(int i = 0; i < friday.length(); i++){
-                    JSONObject current = friday.getJSONObject(i);
-                    String title = current.getString("title");
-                    String time = current.getString("time");
-                    String location = current.getString("location");
-                    String locationAbbr = current.getString("locationAbbr");
-                    String description = current.getString("description");
-                    String specialThanks = current.getString("specialThanks");
-                    String audienceWarning = current.getString("audienceWarning");
-                    String showCreator = "";
-                    String showParticipants = "";
-                    if(current.has("showCreator")) {
-                        showCreator = current.getString("showCreator");
-                    }
-                    if(current.has("showParticipants")) {
-                        showParticipants = current.getString("showParticipants");
-                    }
-                    int month = current.getInt("month");
-                    int day = current.getInt("day");
-                    int hour = current.getInt("hour");
-                    int minutes = current.getInt("minutes");
-
-                    ShowInformation info = new ShowInformation(title, time, location, locationAbbr,
-                            description, specialThanks, audienceWarning, showCreator, showParticipants,
-                            month, day, hour, minutes);
-                    fridayShows.add(info);
-                }
-
-                for(int i = 0; i < saturday.length(); i++){
-                    JSONObject current = saturday.getJSONObject(i);
-                    String title = current.getString("title");
-                    String time = current.getString("time");
-                    String location = current.getString("location");
-                    String locationAbbr = current.getString("locationAbbr");
-                    String description = current.getString("description");
-                    String specialThanks = current.getString("specialThanks");
-                    String audienceWarning = current.getString("audienceWarning");
-                    String showCreator = current.getString("showCreator");
-                    String showParticipants = current.getString("showParticipants");
-
-                    int month = current.getInt("month");
-                    int day = current.getInt("day");
-                    int hour = current.getInt("hour");
-                    int minutes = current.getInt("minutes");
-
-                    ShowInformation info = new ShowInformation(title, time, location, locationAbbr,
-                            description, specialThanks, audienceWarning, showCreator, showParticipants,
-                            month, day, hour, minutes);
-                    saturdayShows.add(info);
-                }
-
-            }catch (IOException e){
-                e.printStackTrace();
-            }catch (JSONException e){
-                e.printStackTrace();
-            }
-
-            currentActivity.updateScreen();
-        }
     }
     //endregion
 
-    //AsyncTask creates a new task thread.
-    private static class FetchJSON extends AsyncTask<String, Void, String> {
-                  @Override
-                  protected String doInBackground(String... urls){
-                      String resultString;
-                      try {
-                          resultString = downloadUrl(urls[0]);
-                      }catch (IOException e){
-                          resultString = "Unable to retrieve web page.";
-                      }
-                      return resultString;
-                  }
 
-        /**
-         * Process the JSON returned from the web
-         *
-         * @param result the string representation of the download
-         */
-                  @Override
-                  protected void onPostExecute(String result){
-                      Log.d("full response", result);
-
-                      //Set all fields to null so that setContentFields updates
-                      thursdayShows = null;
-                      fridayShows = null;
-                      saturdayShows = null;
-                      breaks = null;
-                      installations = null;
-
-                      //after update, trigger live update to update content
-                      FileWriter updateWriter = null;
-                      FileWriter showWriter = null;
-                      FileWriter breakWriter = null;
-                      FileWriter installationWriter = null;
-                      try {
-                          JSONObject pInfo = new JSONObject(result);
-
-                          //Extract the individual fields from the web JSON
-                          JSONArray thursday = pInfo.getJSONArray("thursday");
-                          JSONArray friday = pInfo.getJSONArray("friday");
-                          JSONArray saturday = pInfo.getJSONArray("saturday");
-                          JSONArray installations = pInfo.getJSONArray("installation");
-                          JSONArray breakTimes = pInfo.getJSONArray("breakTimes");
-
-                          //Place all the shows into a single object for writing
-                          JSONObject allShows = new JSONObject();
-                          allShows.put("thursday", thursday);
-                          allShows.put("friday", friday);
-                          allShows.put("saturday", saturday);
-
-                          //Convert the JSONs to strings for write operations
-                          String showSTR = allShows.toString();
-                          String installationSTR = installations.toString();
-                          String breakSTR = breakTimes.toString();
-
-                          //Create FileWriters to write to the File System
-                          File updatefile = new File(applicationContext.getFilesDir(), lastUpdateStorage);
-                          File showfile = new File(applicationContext.getFilesDir(), showStorage);
-                          File breakfile = new File(applicationContext.getFilesDir(), breakStorage);
-                          File installationfile = new File(applicationContext.getFilesDir(), installationStorage);
-
-                          updateWriter = new FileWriter(updatefile, false);
-                          showWriter = new FileWriter(showfile, false);
-                          breakWriter = new FileWriter(breakfile, false);
-                          installationWriter = new FileWriter(installationfile, false);
-
-                          showWriter.write(showSTR);
-                          breakWriter.write(breakSTR);
-                          installationWriter.write(installationSTR);
-
-                          //Construct the current date for the updateWriter
-                          GregorianCalendar now = new GregorianCalendar(
-                                  TimeZone.getTimeZone("GMT-5:00"));
-                          updateWriter.write(Integer.toString(now.get(Calendar.DATE)));
-
-                      }catch (JSONException e){
-                          Log.d("Async Exception","JSON Parser Exception");
-                      }catch (IOException e){
-                          Log.d("Web Result","Write Failed");
-                      }finally{
-                          try {
-                              if (updateWriter != null) {
-                                  updateWriter.close();
-                              }
-                              if (showWriter != null) {
-                                  showWriter.close();
-                              }
-                              if (breakWriter != null) {
-                                  breakWriter.close();
-                              }
-                              if (installationWriter != null) {
-                                  installationWriter.close();
-                              }
-                          }catch(Exception e){
-                              Log.d("Closing files", "Exception thrown");
-                              e.printStackTrace();
-                          }
-                      }
-                      setContentFields();
-                  }
-
-                  // Given a URL, establishes an HttpUrlConnection and retrieves
-                  // the web page content as a InputStream, which it returns as
-                  // a string.
-                  private String downloadUrl(String myurl) throws IOException {
-                      InputStream is = null;
-                      // Only display the first 500 characters of the retrieved
-                      // web page content.
-                      int len = 500;
-                      String contentAsString;
-                      try {
-                          URL url = new URL(myurl);
-                          HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                          conn.setReadTimeout(10000 /* milliseconds */);
-                          conn.setConnectTimeout(15000 /* milliseconds */);
-                          conn.setRequestMethod("GET");
-                          conn.setDoInput(true);
-                          // Starts the query
-                          conn.connect();
-                          int response = conn.getResponseCode();
-                          Log.d("Debug response", "The response is: " + response);
-                          is = conn.getInputStream();
-
-                          // Convert the InputStream into a string
-                          contentAsString = readIt(is, len);
-
-                          // Makes sure that the InputStream is closed after the app is
-                          // finished using it.
-                      } finally {
-                          if (is != null) {
-                              is.close();
-                          }
-                      }
-                      return contentAsString;
-
-                  }
-
-                  // Reads an InputStream and converts it to a String.
-                  public String readIt(InputStream stream, int len) throws IOException, UnsupportedEncodingException {
-                      Reader reader = null;
-                      StringBuilder sb = new StringBuilder();
-                      reader = new InputStreamReader(stream, "UTF-8");
-                      char[] buffer = new char[len];
-                      int bits = 1;
-                      while(bits > 0) {
-                          bits = reader.read(buffer);
-                          sb.append(buffer);
-                      }
-                      return sb.toString();
-                  }
-              }
 
 }

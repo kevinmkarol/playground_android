@@ -1,42 +1,33 @@
 package com.q2qtheater.kevin.playgroundapplication.InformationWrappers;
 
+import java.io.Serializable;
+import java.util.Date;
+
 /**
  * Created by Kevin on 1/28/15.
  *
  * A simple abstract class for wrapping information about different performances
  */
-public abstract class InformationContainer {
+public abstract class InformationContainer implements Serializable {
     private String title;
-    private String displayTime;
     private String location;
-    private String locationAbbr;
     private String description;
     private String specialThanks;
     private String audienceWarning;
-    private String showCreator;
     private String showParticipants;
-    private int month;
-    private int day;
-    private int hour;
-    private int minutes;
+    private Date date;
 
 
-    public InformationContainer(String title, String displayTime, String location,
-                           String locationAbbr, String description, String specialThanks, String audienceWarning,
-                           String showCreator, String showParticipants, int month, int day, int hour, int minutes){
+    public InformationContainer(String title, String location,
+                           String description, String specialThanks, String audienceWarning,
+                           String showParticipants, Date date){
         this.title = title;
-        this.displayTime = displayTime;
         this.location = location;
-        this.locationAbbr = locationAbbr;
         this.description = description;
         this.specialThanks = specialThanks;
         this.audienceWarning = audienceWarning;
-        this.showCreator = showCreator;
         this.showParticipants = showParticipants;
-        this.month = month;
-        this.day = day;
-        this.hour = hour;
-        this.minutes = minutes;
+        this.date = date;
     }
 
     @Override
@@ -50,16 +41,12 @@ public abstract class InformationContainer {
         return title;
     }
 
-    public String getDisplayTime(){
-        return displayTime;
+    public Date getDate(){
+        return date;
     }
 
     public String getLocation() {
         return location;
-    }
-
-    public String getLocationAbbr() {
-        return locationAbbr;
     }
 
     public String getDescription() {
@@ -74,27 +61,8 @@ public abstract class InformationContainer {
         return audienceWarning;
     }
 
-    public String getShowCreator() {
-        return showCreator;
-    }
-
     public String getShowParticipants() {
         return showParticipants;
     }
 
-    public int getMonth() {
-        return month;
-    }
-
-    public int getDay() {
-        return day;
-    }
-
-    public int getHour() {
-        return hour;
-    }
-
-    public int getMinutes() {
-        return minutes;
-    }
 }

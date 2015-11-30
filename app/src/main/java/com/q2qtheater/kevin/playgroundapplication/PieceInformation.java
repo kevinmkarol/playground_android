@@ -20,6 +20,8 @@ import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.Informatio
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.InstallationInformation;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.ShowInformation;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 
 /**
@@ -31,7 +33,6 @@ public class PieceInformation extends Activity {
     //Refernecse to the layout file's fields
     private InformationContainer info;
     private TextView title;
-    private TextView creator;
     private TextView location;
     private TextView description;
     private TextView participants;
@@ -51,22 +52,22 @@ public class PieceInformation extends Activity {
              //Check the day of the week and assign the appropriate show list
              //to allForDay
              if(day.equals("thursday")){
-                 ArrayList<ShowInformation> temp = ContentManager.getThursdayShows();
+                 ArrayList<ShowInformation> temp = ContentManager.getProgramInformation(InformationType.THURSDAY_SHOWS);
                  for(ShowInformation show: temp){
                      allForDay.add(show);
                  }
              }else if(day.equals("friday")){
-                 ArrayList<ShowInformation> temp = ContentManager.getFridayShows();
+                 ArrayList<ShowInformation> temp = ContentManager.getProgramInformation(InformationType.FRIDAY_SHOWS);
                  for(ShowInformation show: temp){
                      allForDay.add(show);
                  }
              }else if(day.equals("saturday")){
-                 ArrayList<ShowInformation> temp = ContentManager.getSaturdayShows();
+                 ArrayList<ShowInformation> temp = ContentManager.getProgramInformation(InformationType.SATURDAY_SHOWS);
                  for(ShowInformation show: temp){
                      allForDay.add(show);
                  }
              }else{
-                 ArrayList<InstallationInformation> temp = ContentManager.getInstallations();
+                 ArrayList<InstallationInformation> temp = ContentManager.getProgramInformation(InformationType.INSTALLATIONS);
                  for(InstallationInformation install: temp){
                      allForDay.add(install);
                  }
@@ -78,17 +79,22 @@ public class PieceInformation extends Activity {
              //Locate and link the layout file's fields
              //global reference to decrease uses of findViewById
              title = (TextView) view.findViewById(R.id.title);
-             creator = (TextView) view.findViewById(R.id.creator);
              location = (TextView) view.findViewById(R.id.location);
              description = (TextView) view.findViewById(R.id.description);
              participants = (TextView) view.findViewById(R.id.performers);
              audienceWarnings = (TextView) view.findViewById(R.id.warnings);
              specialThanks = (TextView) view.findViewById(R.id.specialthanks);
 
-             //Display the text fields from the show taken from the show array
+
+             if(info.isInstallation()) {
+                 location.setText(info.getLocation());
+             }else{
+                 //Display the text fields from the show taken from the show array
+                 DateFormat df = new SimpleDateFormat("HH:mm");
+                 String formattedDate = df.format(info.getDate());
+                 location.setText(info.getLocation() + " " + formattedDate);
+             }
              title.setText(info.getTitle());
-             creator.setText(info.getShowCreator());
-             location.setText(info.getLocation() + " " + info.getDisplayTime());
              description.setText(info.getDescription());
              participants.setText(info.getShowParticipants());
              audienceWarnings.setText(info.getAudienceWarning());

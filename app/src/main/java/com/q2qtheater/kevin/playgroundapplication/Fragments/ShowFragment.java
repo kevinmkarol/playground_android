@@ -13,6 +13,7 @@ import android.widget.ListAdapter;
 import android.widget.TextView;
 
 import com.q2qtheater.kevin.playgroundapplication.ContentManager;
+import com.q2qtheater.kevin.playgroundapplication.InformationType;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.InformationContainer;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.InstallationInformation;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.ShowInformation;
@@ -61,10 +62,10 @@ public class ShowFragment extends Fragment implements AbsListView.OnItemClickLis
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        ArrayList<ShowInformation> thursday = ContentManager.getThursdayShows();
-        ArrayList<ShowInformation> friday = ContentManager.getFridayShows();
-        ArrayList<ShowInformation> saturday = ContentManager.getSaturdayShows();
-        ArrayList<InstallationInformation> install = ContentManager.getInstallations();
+        ArrayList<ShowInformation> thursday = ContentManager.getProgramInformation(InformationType.THURSDAY_SHOWS);
+        ArrayList<ShowInformation> friday = ContentManager.getProgramInformation(InformationType.FRIDAY_SHOWS);
+        ArrayList<ShowInformation> saturday = ContentManager.getProgramInformation(InformationType.SATURDAY_SHOWS);
+        ArrayList<InstallationInformation> install = ContentManager.getProgramInformation(InformationType.INSTALLATIONS);
 
         ArrayList<InformationContainer> fullArray = new ArrayList<InformationContainer>();
         fullArray.addAll(thursday);
@@ -115,10 +116,10 @@ public class ShowFragment extends Fragment implements AbsListView.OnItemClickLis
         if (null != mListener) {
             // Notify the active callbacks interface (the activity, if the
             // fragment is attached to one) that an item has been selected.
-            ArrayList<ShowInformation> thursday = ContentManager.getThursdayShows();
-            ArrayList<ShowInformation> friday = ContentManager.getFridayShows();
-            ArrayList<ShowInformation> saturday = ContentManager.getSaturdayShows();
-            ArrayList<InstallationInformation> install = ContentManager.getInstallations();
+            ArrayList<ShowInformation> thursday = ContentManager.getProgramInformation(InformationType.THURSDAY_SHOWS);
+            ArrayList<ShowInformation> friday = ContentManager.getProgramInformation(InformationType.FRIDAY_SHOWS);
+            ArrayList<ShowInformation> saturday = ContentManager.getProgramInformation(InformationType.SATURDAY_SHOWS);
+            ArrayList<InstallationInformation> install = ContentManager.getProgramInformation(InformationType.INSTALLATIONS);
 
             //Calculate totals seen at a certain point in festival
             String dayID;
