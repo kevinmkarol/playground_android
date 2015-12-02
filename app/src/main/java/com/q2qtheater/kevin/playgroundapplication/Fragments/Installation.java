@@ -25,11 +25,9 @@ import java.util.ArrayList;
  */
 public class Installation extends Fragment {
     private ImageView installationImage = null;
-    private Context applicationContext = null;
 
-    public Installation(Context context) {
-        // Required empty public constructor
-        applicationContext = context;
+    public Installation() {
+
     }
 
 

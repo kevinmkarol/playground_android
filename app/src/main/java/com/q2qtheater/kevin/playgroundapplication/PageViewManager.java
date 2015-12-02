@@ -44,7 +44,7 @@ public class PageViewManager extends Activity implements
 
         screen1 = new LiveUpdate();
         screen2 = new ShowFragment();
-        screen3 = new Installation(getApplicationContext());
+        screen3 = new Installation();
         screen4 = new FestivalStaff();
 
 

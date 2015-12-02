@@ -44,6 +44,10 @@ public class ContentManager {
     private static Context applicationContext;
     private static PageViewManager currentActivity;
 
+    //For refreshing the app once data is done
+    private static int imageDownloadCount = 0;
+    private static int numberOfImages = 4;
+
     //File accessors
     private static final String version_fn = "version";
     private static final String festivalDates_fn = "festivalDates";
@@ -340,15 +344,6 @@ public class ContentManager {
                 WebInterfaceManager.downloadImage(applicationContext, installationImage);
             }
         }
-
-        //This is a terrible hack to refresh the data
-        //should be removed ASAP
-        Intent mStartActivity = new Intent(applicationContext, PageViewManager.class);
-        int mPendingIntentId = 123456;
-        PendingIntent mPendingIntent = PendingIntent.getActivity(applicationContext, mPendingIntentId,    mStartActivity, PendingIntent.FLAG_CANCEL_CURRENT);
-        AlarmManager mgr = (AlarmManager)applicationContext.getSystemService(Context.ALARM_SERVICE);
-        mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 100, mPendingIntent);
-        System.exit(0);
     }
 
     private static float getCurrentVersion(){
@@ -447,6 +442,17 @@ public class ContentManager {
             }catch (Exception e){
                 e.printStackTrace();
             }
+        }
+        imageDownloadCount++;
+        if(imageDownloadCount >= numberOfImages) {
+            //This is a terrible hack to refresh the data
+            //should be removed ASAP
+            Intent mStartActivity = new Intent(applicationContext, PageViewManager.class);
+            int mPendingIntentId = 123456;
+            PendingIntent mPendingIntent = PendingIntent.getActivity(applicationContext, mPendingIntentId, mStartActivity, PendingIntent.FLAG_CANCEL_CURRENT);
+            AlarmManager mgr = (AlarmManager) applicationContext.getSystemService(Context.ALARM_SERVICE);
+            mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 100, mPendingIntent);
+            System.exit(0);
         }
     }
 
