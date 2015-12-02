@@ -1,12 +1,10 @@
 package com.q2qtheater.kevin.playgroundapplication;
 
-import com.q2qtheater.kevin.playgroundapplication.Fragments.Installation;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.BreakInformation;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.Credit;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.InstallationImage;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.InstallationInformation;
 import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.ShowInformation;
-import com.q2qtheater.kevin.playgroundapplication.WebInterfaceManager;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -25,7 +23,12 @@ import java.util.GregorianCalendar;
 import java.util.Scanner;
 import java.util.TimeZone;
 
+import android.app.AlarmManager;
+import android.app.PendingIntent;
 import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.util.Log;
 
 import org.json.*;
@@ -42,7 +45,7 @@ public class ContentManager {
     private static PageViewManager currentActivity;
 
     //File accessors
-    private static final String version_fn = "installationImages";
+    private static final String version_fn = "version";
     private static final String festivalDates_fn = "festivalDates";
     private static final String festivalStaff_fn = "festivalStaff";
     private static final String specialThanks_fn = "specialThanks";
@@ -79,38 +82,27 @@ public class ContentManager {
         applicationContext = appContext;
         currentActivity = activity;
 
-        File lastUpdateFile = new File(appContext.getFilesDir(), lastUpdate_fn);
+        GregorianCalendar lastUpdate = getLastUpdateTime();
         boolean successfulUpdate = true;
         WebInterfaceManager webInterface = new WebInterfaceManager();
-        try {
-            if (!lastUpdateFile.exists()) {
-                //Files have not been created, create and get initial content
-                createAllFiles(appContext);
+        GregorianCalendar now = new GregorianCalendar(
+                TimeZone.getTimeZone("GMT-5:00"));
 
-                successfulUpdate = webInterface.getProgramInformation(appContext);
-            } else {
-                //Conetent exists - check if it needs to be updated
-                //TODO: Not an object, use a scanner
-                StringBuilder updateTimeSB = new StringBuilder();
-                Scanner showScanner = new Scanner(lastUpdateFile);
-                while(showScanner.hasNextLine()){
-                    updateTimeSB.append(showScanner.nextLine());
-                }
-                String lastUpdateString = updateTimeSB.toString();
-                int lastUpdatedDay = -1;
-                if(lastUpdateString != "") {
-                    lastUpdatedDay = Integer.parseInt(updateTimeSB.toString());
-                }
-                GregorianCalendar now = new GregorianCalendar(
-                                            TimeZone.getTimeZone("GMT-5:00"));
+        if (lastUpdate == null) {
+            //Files have not been created, create and get initial content
+            createAllFiles();
 
-                //Check if content is from a different day
-                if(now.get(Calendar.DATE) != lastUpdatedDay){
-                    webInterface.getProgramInformation(appContext);
-                }
+            successfulUpdate = webInterface.getProgramInformation(appContext);
+            setLastUpdateTime(now);
+        } else {
+            //Conetent exists - check if it needs to be updated
+
+
+            //Check if content is from a different day
+            if(now.get(Calendar.DATE) != lastUpdate.get(Calendar.DATE)){
+                webInterface.getProgramInformation(appContext);
+                setLastUpdateTime(now);
             }
-        }catch (IOException e){
-            Log.e("Playground App", "Initialize context error", e);
         }
 
         if(!successfulUpdate) {
@@ -194,7 +186,8 @@ public class ContentManager {
     //Parses the google sheets information into appropriate information storage arrays
     //And writes each to the appropriate file
     public static void parseGoogleSheetResponse(String result) {
-        float version;
+        float oldVersion = getCurrentVersion();
+        float newVersion = 0.0f;
         ArrayList<GregorianCalendar>  festivalDates = new ArrayList<GregorianCalendar>();
         String currentHeader = "";
         ArrayList currentList = new ArrayList();
@@ -209,74 +202,74 @@ public class ContentManager {
             ///Distinguish between different headers
             ///////////
             if (allFields[0].equals("version")) {
-                version = Float.parseFloat(allFields[1]);
-                currentList.add(version);
+                newVersion = Float.parseFloat(allFields[1]);
+                currentList.add(newVersion);
                 continue;
 
             } else if (allFields[0].equals("Festival Dates")) {
                 currentHeader = "Festival Dates";
-                writeProgramInformationToFile(version_fn, currentList);
+                saveProgramInformationToFile(version_fn, currentList);
                 currentList.clear();
                 continue;
 
             } else if (allFields[0].equals("Installation Images")) {
                 currentHeader = "Installation Images";
-                writeProgramInformationToFile(festivalDates_fn, currentList);
+                saveProgramInformationToFile(festivalDates_fn, currentList);
                 festivalDates = new ArrayList<GregorianCalendar>(currentList);
                 currentList.clear();
                 continue;
 
             } else if (allFields[0].equals("Festival Staff")) {
                 currentHeader = "Festival Staff";
-                writeProgramInformationToFile(installationImages_fn, currentList);
+                saveProgramInformationToFile(installationImages_fn, currentList);
                 installationImages = new ArrayList<InstallationImage>(currentList);
                 currentList.clear();
                 continue;
 
             } else if (allFields[0].equals("Special Thanks")) {
                 currentHeader = "Special Thanks";
-                writeProgramInformationToFile(festivalStaff_fn, currentList);
+                saveProgramInformationToFile(festivalStaff_fn, currentList);
                 festivalStaff = new ArrayList<Credit>(currentList);
                 currentList.clear();
                 continue;
 
             } else if (allFields[0].equals("Thursday")) {
                 currentHeader = "Thursday";
-                writeProgramInformationToFile(specialThanks_fn, currentList);
+                saveProgramInformationToFile(specialThanks_fn, currentList);
                 specialThanks = new ArrayList<Credit>(currentList);
                 currentList.clear();
                 continue;
 
             } else if (allFields[0].equals("Friday")) {
                 currentHeader = "Thursday";
-                writeProgramInformationToFile(thursday_fn, currentList);
+                saveProgramInformationToFile(thursday_fn, currentList);
                 thursdayShowList = new ArrayList<ShowInformation>(currentList);
                 currentList.clear();
                 continue;
 
             } else if (allFields[0].equals("Saturday")) {
                 currentHeader = "Saturday";
-                writeProgramInformationToFile(friday_fn, currentList);
+                saveProgramInformationToFile(friday_fn, currentList);
                 fridayShowList = new ArrayList<ShowInformation>(currentList);
                 currentList.clear();
                 continue;
 
             } else if (allFields[0].equals("Installations")) {
                 currentHeader = "Installations";
-                writeProgramInformationToFile(saturday_fn, currentList);
+                saveProgramInformationToFile(saturday_fn, currentList);
                 saturdayShowList = new ArrayList<ShowInformation>(currentList);
                 currentList.clear();
                 continue;
 
             } else if (allFields[0].equals("Breaks")) {
                 currentHeader = "Breaks";
-                writeProgramInformationToFile(installation_fn, currentList);
+                saveProgramInformationToFile(installation_fn, currentList);
                 installations = new ArrayList<InstallationInformation>(currentList);
                 currentList.clear();
                 continue;
 
             } else if (allFields[0].equals("End")) {
-                writeProgramInformationToFile(break_fn, currentList);
+                saveProgramInformationToFile(break_fn, currentList);
                 breaks = new ArrayList<BreakInformation>(currentList);
                 currentList.clear();
                 break;
@@ -340,14 +333,38 @@ public class ContentManager {
                 BreakInformation breakInfo = new BreakInformation(d);
             }
         }
+        //If the version number has been updated, download new image files
+        if(newVersion > oldVersion){
+            ArrayList<InstallationImage> imageWrappers = getProgramInformation(InformationType.INSTALLATION_IMAGES);
+            for(InstallationImage installationImage : imageWrappers){
+                WebInterfaceManager.downloadImage(applicationContext, installationImage);
+            }
+        }
+
+        //This is a terrible hack to refresh the data
+        //should be removed ASAP
+        Intent mStartActivity = new Intent(applicationContext, PageViewManager.class);
+        int mPendingIntentId = 123456;
+        PendingIntent mPendingIntent = PendingIntent.getActivity(applicationContext, mPendingIntentId,    mStartActivity, PendingIntent.FLAG_CANCEL_CURRENT);
+        AlarmManager mgr = (AlarmManager)applicationContext.getSystemService(Context.ALARM_SERVICE);
+        mgr.set(AlarmManager.RTC, System.currentTimeMillis() + 100, mPendingIntent);
+        System.exit(0);
     }
 
+    private static float getCurrentVersion(){
+        ArrayList<Float> version = retrieveInformationFromFileSystem(version_fn);
+        float extractedVersion = -1.0f;
+        if(version.size() != 0){
+            extractedVersion = version.get(0);
+        }
+        return extractedVersion;
+    }
 
     private static ArrayList retrieveInformationFromFileSystem(String fileName){
         File readFile = new File(applicationContext.getFilesDir(), fileName);
         FileInputStream fin = null;
         ObjectInputStream ois = null;
-        ArrayList fileContents = null;
+        ArrayList fileContents = new ArrayList();
         if(readFile.length() != 0) {
             try {
                 fin = new FileInputStream(readFile);
@@ -378,7 +395,7 @@ public class ContentManager {
         return fileContents;
     }
 
-    private static void writeProgramInformationToFile(String fileName, ArrayList information){
+    private static void saveProgramInformationToFile(String fileName, ArrayList information){
         File writeFile = new File(applicationContext.getFilesDir(), fileName);
         FileOutputStream fout = null;
         ObjectOutputStream oos = null;
@@ -403,6 +420,47 @@ public class ContentManager {
         }
     }
 
+    /**
+     *
+     * Save the image file to the file system for later access
+     *
+     * @param imageName the name of the image to save
+     * @param bitmap the actual bitmap of the image
+     * @return the local path to access the image
+     */
+    public static void saveImageToFile(String imageName, Bitmap bitmap){
+        //create a new file with the image name
+        File imageFile = new File(applicationContext.getFilesDir(), imageName);
+        FileOutputStream out = null;
+        try{
+            imageFile.createNewFile();
+            out = new FileOutputStream(imageFile);
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
+
+        }catch (Exception e){
+            e.printStackTrace();
+        }finally{
+            try{
+                if(out != null){
+                    out.close();
+                }
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public static Bitmap getImageFromFile(String fileName) {
+        File imageFile = new File(applicationContext.getFilesDir(), fileName);
+        Bitmap bitmap = null;
+        try {
+            bitmap = BitmapFactory.decodeFile(imageFile.getAbsolutePath());
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+
+        return bitmap;
+    }
 
     //region manage interaction with file system, and object
 
@@ -410,13 +468,12 @@ public class ContentManager {
      * Create the files that will persistently store show information
      * between app sessions and when there is no internet connection
      *
-     * @param appContext the app context to allow writing to the file system
      */
-    private static void createAllFiles(Context appContext){
+    private static void createAllFiles(){
         File toCreate = null;
         FileWriter updateWriter;
         for(String fileName : allFileNames){
-            toCreate = new File(appContext.getFilesDir(), fileName);
+            toCreate = new File(applicationContext.getFilesDir(), fileName);
             try{
                 toCreate.createNewFile();
             }catch(java.io.IOException e){
@@ -427,7 +484,7 @@ public class ContentManager {
 
         //Set the date in the lastUpdate file so that data will be fetched the
         //first time the app is opened
-        File updatefile = new File(appContext.getFilesDir(), lastUpdate_fn);
+        File updatefile = new File(applicationContext.getFilesDir(), lastUpdate_fn);
         //Set the time to 1970 so that data will be fetched
         int notADate = -1;
         try {
@@ -438,6 +495,66 @@ public class ContentManager {
         }
 
     }
+
+    private static GregorianCalendar getLastUpdateTime(){
+        File lastUpdateFile = new File(applicationContext.getFilesDir(), lastUpdate_fn);
+        GregorianCalendar updateDate = null;
+        if(lastUpdateFile.exists()) {
+            FileInputStream fin = null;
+            ObjectInputStream ois = null;
+            try {
+                fin = new FileInputStream(lastUpdateFile);
+                ois = new ObjectInputStream(fin);
+                if (ois != null) {
+                    updateDate = (GregorianCalendar) ois.readObject();
+                }
+            } catch (java.io.FileNotFoundException e) {
+                Log.e("Playground App", "update file not found", e);
+            } catch (java.io.IOException e) {
+                Log.e("Playground App", "update file not read properly", e);
+            } catch (java.lang.ClassNotFoundException e) {
+                Log.e("Playground App", "update file class not found", e);
+            } finally {
+                try {
+                    if (ois != null) {
+                        ois.close();
+                    }
+                    if (fin != null) {
+                        fin.close();
+                    }
+                } catch (java.io.IOException e) {
+                    Log.e("Playground App", "retrieve information error", e);
+                }
+            }
+        }
+        return updateDate;
+    }
+
+    private static void setLastUpdateTime(GregorianCalendar update){
+        File writeFile = new File(applicationContext.getFilesDir(), lastUpdate_fn);
+        FileOutputStream fout = null;
+        ObjectOutputStream oos = null;
+        try {
+            fout = new FileOutputStream(writeFile);
+            oos = new ObjectOutputStream(fout);
+            oos.writeObject(update);
+
+        }catch(java.io.IOException e) {
+            Log.e("Playground App", "write last update error", e);
+        }finally{
+            try {
+                if (oos != null) {
+                    oos.close();
+                }
+                if (fout != null) {
+                    fout.close();
+                }
+            }catch(java.io.IOException e){
+                Log.e("Playground App", "closing IO error last update", e);
+            }
+        }
+    }
+
     //endregion
 
 

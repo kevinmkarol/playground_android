@@ -5,6 +5,7 @@
     tools:context="com.q2qtheater.kevin.playgroundapplication.Fragments.Installation">
 
     <ImageView
+        android:id="@+id/installationImage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"

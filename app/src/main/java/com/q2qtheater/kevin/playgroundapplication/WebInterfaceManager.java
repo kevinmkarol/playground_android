@@ -1,19 +1,15 @@
 package com.q2qtheater.kevin.playgroundapplication;
 
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.util.Log;
 
-import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.ShowInformation;
+import com.q2qtheater.kevin.playgroundapplication.InformationWrappers.InstallationImage;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
-import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -21,11 +17,7 @@ import java.io.Reader;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.TimeZone;
+
 
 /**
  * Created by Kevin on 11/29/15.
@@ -43,12 +35,46 @@ public class WebInterfaceManager {
         if(networkInfo == null || !networkInfo.isConnected()){
             return false;
         }
+
         new FetchProgramInformation().execute(programInfoURL);
 
         return true;
     }
 
-    //AsyncTask creates a new task thread.
+    public static boolean downloadImage(Context applicationContext, InstallationImage image){
+        ConnectivityManager connMgr =
+                (ConnectivityManager) applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connMgr.getActiveNetworkInfo();
+        if(networkInfo == null || !networkInfo.isConnected()){
+            return false;
+        }
+
+        new DownloadImage().execute(image);
+
+        return true;
+
+    }
+
+    private static class DownloadImage extends  AsyncTask<InstallationImage, Void, Void>{
+        @Override
+        protected Void doInBackground(InstallationImage... images) {
+            InstallationImage image = images[0];
+            Bitmap bitmap = null;
+            try{
+                //Download Image from URL
+                InputStream input = new java.net.URL(image.getWebURL()).openStream();
+                //Decode Bitmap
+                bitmap = BitmapFactory.decodeStream(input);
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+
+            ContentManager.saveImageToFile(image.getImageName(), bitmap);
+            return null;
+        }
+    }
+
+    //Class for fetching and constructing program information
     private static class FetchProgramInformation extends AsyncTask<String, Void, String> {
         @Override
         protected String doInBackground(String... urls){
@@ -59,17 +85,6 @@ public class WebInterfaceManager {
                 resultString = "Unable to retrieve web page.";
             }
             return resultString;
-        }
-
-        /**
-         * Send the response to the Content Manager
-         *
-         * @param result the string representation of the download
-         */
-        @Override
-        protected void onPostExecute(String result){
-            Log.d("full response", result);
-            ContentManager.parseGoogleSheetResponse(result);
         }
 
         // Given a URL, establishes an HttpUrlConnection and retrieves
@@ -125,6 +140,17 @@ public class WebInterfaceManager {
                 }
             }
             return sb.toString();
+        }
+
+        /**
+         * Send the response to the Content Manager
+         *
+         * @param result the string representation of the download
+         */
+        @Override
+        protected void onPostExecute(String result){
+            Log.d("full response", result);
+            ContentManager.parseGoogleSheetResponse(result);
         }
     }
 }

@@ -8,11 +8,19 @@ import java.io.Serializable;
 public class InstallationImage implements Serializable{
     private String imageName;
     private String webURL;
-    private String localURL;
 
     public InstallationImage(String imageName, String webURL){
         this.imageName = imageName;
         this.webURL = webURL;
     }
+
+    public String getWebURL(){
+        return this.webURL;
+    }
+
+    public String getImageName(){
+        return this.imageName;
+    }
+
 
 }

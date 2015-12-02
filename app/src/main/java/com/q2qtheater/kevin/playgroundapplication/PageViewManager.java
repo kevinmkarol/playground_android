@@ -32,22 +32,28 @@ public class PageViewManager extends Activity implements
     private PagerAdapter mPagerAdapter;
     private static int NUM_PAGES = 4;
 
-    private static final LiveUpdate screen1 = new LiveUpdate();
-    private static final  ShowFragment screen2 = new ShowFragment();
-    private static final Installation screen3 = new Installation();
-    private static final FestivalStaff screen4 = new FestivalStaff();
+    private static LiveUpdate screen1 = null;
+    private static ShowFragment screen2 = null;
+    private static Installation screen3 = null;
+    private static FestivalStaff screen4 = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_page_view_manager);
 
+        screen1 = new LiveUpdate();
+        screen2 = new ShowFragment();
+        screen3 = new Installation(getApplicationContext());
+        screen4 = new FestivalStaff();
+
+
         mPager = (ViewPager) findViewById(R.id.pager);
         mPagerAdapter = new ScreenSlidePagerAdapter(getFragmentManager());
         mPager.setAdapter(mPagerAdapter);
-        mPager.setOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener(){
+        mPager.setOnPageChangeListener(new ViewPager.SimpleOnPageChangeListener() {
             @Override
-        public void onPageSelected(int position){
+            public void onPageSelected(int position) {
                 //NotUsed
             }
         });
